@@ -99,11 +99,11 @@ const totalFeed = computed(() => gameStore.totalFeedAvailable)
         <span class="btn-icon">🐠</span>
       </button>
       
-      <!-- 我的代金券（烹饪图标） -->
+      <!-- 渔获查询（烹饪图标） -->
       <button 
         class="sidebar-btn sidebar-btn--coupon" 
         @click="$emit('showCoupons')"
-        title="我的代金券"
+        title="渔获查询"
       >
         <span class="btn-icon">🍳</span>
         <span v-if="gameStore.coupons.length > 0" class="btn-badge btn-badge--gold">{{ gameStore.coupons.length }}</span>

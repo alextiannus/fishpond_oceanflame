@@ -92,7 +92,7 @@ function handleSave() {
   <div class="processing-voucher">
     <!-- 头部 -->
     <div class="voucher__header">
-      <h2>🐟 鱼获评证</h2>
+      <h2>🐟 渔获评证</h2>
       <button class="voucher__close" @click="$emit('close')">✕</button>
     </div>
     
