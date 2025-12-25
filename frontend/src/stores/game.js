@@ -157,10 +157,17 @@ export const useGameStore = defineStore('game', () => {
             // 检查是否有鱼食目标（被鱼食吸引）
             const foodTarget = fishTargets.value[fish.id]
             if (foodTarget) {
-                // 游向鱼食，速度加快
-                fish.targetX = foodTarget.x
-                fish.targetY = foodTarget.y
-                fish.speed = 0.8 // 加速游向食物
+                // 找到对应的鱼食，追踪其当前位置
+                const pellet = foodPellets.value.find(p => p.id === foodTarget.pelletId)
+                if (pellet && !pellet.eaten) {
+                    // 游向鱼食的当前位置
+                    fish.targetX = pellet.x
+                    fish.targetY = pellet.currentY
+                    fish.speed = 0.6 // 加速游向食物
+                } else {
+                    // 鱼食已被吃掉或不存在，清除目标
+                    delete fishTargets.value[fish.id]
+                }
             } else {
                 // 恢复正常速度
                 fish.speed = 0.1 + (fish.id.charCodeAt(5) || 50) % 20 / 100
@@ -271,23 +278,31 @@ export const useGameStore = defineStore('game', () => {
             return { success: false, message: '没有鱼可以喂食' }
         }
 
-        // 选择一条鱼来吃这个鱼食（最饿或随机）
-        const targetFish = eligibleFish[Math.floor(Math.random() * eligibleFish.length)]
-
         // 创建鱼食颗粒（从顶部随机位置落下）
         const pelletX = 20 + Math.random() * 60 // 20-80% 位置
         const pellet = {
             id: `pellet_${Date.now()}`,
             x: pelletX,
-            y: 5, // 从顶部开始
-            targetY: 30 + Math.random() * 30, // 落到 30-60% 位置
-            targetFishId: targetFish.id,
+            currentY: 5, // 当前位置（从顶部开始）
+            targetY: 50 + Math.random() * 20, // 最终落到 50-70% 位置
+            fallSpeed: 0.15, // 每次更新下落的距离 (慢速 1/4)
             eaten: false,
+            eatenByFishId: null,
         }
         foodPellets.value.push(pellet)
 
-        // 设置目标鱼游向鱼食
-        fishTargets.value[targetFish.id] = { x: pelletX, y: pellet.targetY }
+        // 吸引所有附近的鱼向鱼食游去
+        for (const fish of eligibleFish) {
+            // 计算鱼到鱼食的距离
+            const distX = Math.abs(fish.x - pelletX)
+            const distY = Math.abs(fish.y - pellet.currentY)
+            const distance = Math.sqrt(distX * distX + distY * distY)
+
+            // 距离在40%范围内的鱼会被吸引
+            if (distance < 40) {
+                fishTargets.value[fish.id] = { x: pelletX, y: pellet.targetY, pelletId: pellet.id }
+            }
+        }
 
         // 扣除饲料
         if (shareBonus.value > 0) {
@@ -295,37 +310,6 @@ export const useGameStore = defineStore('game', () => {
         } else {
             feedCount.value--
         }
-
-        // 延迟处理鱼吃到鱼食
-        setTimeout(() => {
-            // 更新鱼的成长
-            const DAILY_GROWTH = 60
-            const weightGain = DAILY_GROWTH + (Math.random() - 0.5) * 20
-            targetFish.weight += weightGain
-            targetFish.foodEaten += 1
-            targetFish.lastFedAt = new Date().toISOString()
-
-            const MATURE_WEIGHT = 800
-            targetFish.growth = Math.min(100, (targetFish.weight / MATURE_WEIGHT) * 100)
-            if (targetFish.weight >= MATURE_WEIGHT) {
-                targetFish.status = FISH_STATUS.ADULT
-            } else if (targetFish.weight > 100 && targetFish.status === FISH_STATUS.BABY) {
-                targetFish.status = FISH_STATUS.GROWING
-            }
-
-            // 标记鱼食已被吃掉
-            pellet.eaten = true
-
-            // 清除鱼的目标，让它散开
-            delete fishTargets.value[targetFish.id]
-
-            // 移除鱼食
-            setTimeout(() => {
-                foodPellets.value = foodPellets.value.filter(p => p.id !== pellet.id)
-            }, 500)
-
-            saveToPersistence()
-        }, 1500) // 1.5秒后吃到
 
         saveToPersistence()
 
@@ -335,6 +319,71 @@ export const useGameStore = defineStore('game', () => {
             fed: 1,
             message: `投喂成功！剩余 ${newAvailable} 份饲料`,
             needShare: newAvailable <= 0
+        }
+    }
+
+    // 更新鱼食位置并检测碰撞（在updateFishStates中调用）
+    function updateFoodPellets() {
+        const pelletsToRemove = []
+
+        for (const pellet of foodPellets.value) {
+            if (pellet.eaten) continue
+
+            // 缓缓下落
+            if (pellet.currentY < pellet.targetY) {
+                pellet.currentY += pellet.fallSpeed
+            }
+
+            // 检测与鱼的碰撞（鱼嘴位置）
+            for (const fish of fishes.value) {
+                if (fish.status === FISH_STATUS.CAUGHT || pellet.eaten) continue
+
+                // 计算鱼嘴位置（根据朝向偏移）
+                const fishMouthX = fish.x + (fish.direction > 0 ? 3 : -3)
+                const fishMouthY = fish.y
+
+                // 计算距离
+                const distX = Math.abs(fishMouthX - pellet.x)
+                const distY = Math.abs(fishMouthY - pellet.currentY)
+                const distance = Math.sqrt(distX * distX + distY * distY)
+
+                // 碰撞检测：鱼嘴距离鱼食在 5% 以内
+                if (distance < 5) {
+                    // 鱼吃到了鱼食
+                    pellet.eaten = true
+                    pellet.eatenByFishId = fish.id
+
+                    // 更新鱼的成长
+                    const DAILY_GROWTH = 60
+                    const weightGain = DAILY_GROWTH + (Math.random() - 0.5) * 20
+                    fish.weight += weightGain
+                    fish.foodEaten += 1
+                    fish.lastFedAt = new Date().toISOString()
+
+                    const MATURE_WEIGHT = 800
+                    fish.growth = Math.min(100, (fish.weight / MATURE_WEIGHT) * 100)
+                    if (fish.weight >= MATURE_WEIGHT) {
+                        fish.status = FISH_STATUS.ADULT
+                    } else if (fish.weight > 100 && fish.status === FISH_STATUS.BABY) {
+                        fish.status = FISH_STATUS.GROWING
+                    }
+
+                    // 清除所有被这个鱼食吸引的鱼的目标
+                    for (const fishId in fishTargets.value) {
+                        if (fishTargets.value[fishId].pelletId === pellet.id) {
+                            delete fishTargets.value[fishId]
+                        }
+                    }
+
+                    // 延迟移除鱼食
+                    setTimeout(() => {
+                        foodPellets.value = foodPellets.value.filter(p => p.id !== pellet.id)
+                    }, 400)
+
+                    saveToPersistence()
+                    break
+                }
+            }
         }
     }
 
@@ -481,6 +530,9 @@ export const useGameStore = defineStore('game', () => {
 
         // 更新鱼的游动
         updateFishMovement()
+
+        // 更新鱼食位置和碰撞检测
+        updateFoodPellets()
 
         // 游戏常量
         const MS_PER_DAY = 24 * 60 * 60 * 1000

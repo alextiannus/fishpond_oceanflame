@@ -246,10 +246,13 @@ const backgroundStyle = computed(() => {
         :class="{ 'food-pellet--eaten': pellet.eaten }"
         :style="{
           left: `${pellet.x}%`,
-          '--target-y': `${pellet.targetY}%`,
+          top: `${pellet.currentY || 5}%`,
         }"
       >
-        <span class="pellet-icon">🟤</span>
+        <div class="pellet-visual">
+          <span class="pellet-core">🟠</span>
+          <span class="pellet-sparkle">✨</span>
+        </div>
       </div>
     </div>
     
@@ -712,35 +715,50 @@ const backgroundStyle = computed(() => {
 
 .food-pellet {
   position: absolute;
-  top: 0;
   transform: translateX(-50%);
-  animation: pellet-fall 1.5s ease-out forwards;
+  transition: top 0.1s linear;
 }
 
 .food-pellet--eaten {
-  animation: pellet-fall 1.5s ease-out forwards, pellet-eaten 0.3s ease-out 1.5s forwards;
+  animation: pellet-eaten 0.4s ease-out forwards;
 }
 
-.pellet-icon {
-  font-size: 16px;
+.pellet-visual {
+  position: relative;
+  animation: pellet-float 1s ease-in-out infinite;
+}
+
+.pellet-core {
+  font-size: 22px;
   display: block;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 3px 6px rgba(255, 150, 0, 0.5));
 }
 
-@keyframes pellet-fall {
-  0% {
-    top: 5%;
-    opacity: 0;
-    transform: translateX(-50%) scale(0.5);
+.pellet-sparkle {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 10px;
+  animation: sparkle 0.8s ease-in-out infinite;
+}
+
+@keyframes pellet-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-5deg);
   }
-  20% {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
+  50% {
+    transform: translateY(-3px) rotate(5deg);
   }
-  100% {
-    top: var(--target-y, 40%);
+}
+
+@keyframes sparkle {
+  0%, 100% {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.7);
   }
 }
 
@@ -748,6 +766,10 @@ const backgroundStyle = computed(() => {
   0% {
     transform: translateX(-50%) scale(1);
     opacity: 1;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.3);
+    opacity: 0.8;
   }
   100% {
     transform: translateX(-50%) scale(0);
