@@ -8,6 +8,12 @@ import pondBg2 from '@/assets/pond-bg-2.jpg'
 import pondBg3 from '@/assets/pond-bg-3.jpg'
 import pondBg4 from '@/assets/pond-bg-4.jpg'
 
+// 导入按钮图标
+import feedIcon from '@/assets/feed.jpeg'
+import getnewfishIcon from '@/assets/getnewfish.jpeg'
+import fishingcollectionIcon from '@/assets/fishingcollection.jpeg'
+import shareIcon from '@/assets/share.jpeg'
+
 const gameStore = useGameStore()
 
 const emit = defineEmits(['feedAll', 'showScan', 'showCoupons', 'showShare'])
@@ -86,26 +92,26 @@ const totalFeed = computed(() => gameStore.totalFeedAvailable)
         :disabled="totalFeed <= 0 || gameStore.fishes.length === 0"
         title="喂食所有鱼"
       >
-        <span class="btn-icon">🍞</span>
+        <img :src="feedIcon" alt="喂食" class="btn-icon-img" />
         <span class="btn-badge">{{ totalFeed }}</span>
       </button>
       
-      <!-- 添加鱼苗（鱼缸图标） -->
+      <!-- 添加鱼苗 -->
       <button 
         class="sidebar-btn sidebar-btn--add" 
         @click="$emit('showScan')"
         title="添加鱼苗"
       >
-        <span class="btn-icon">🐠</span>
+        <img :src="getnewfishIcon" alt="添加鱼苗" class="btn-icon-img" />
       </button>
       
-      <!-- 渔获（鱼图标） -->
+      <!-- 渔获 -->
       <button 
         class="sidebar-btn sidebar-btn--coupon" 
         @click="$emit('showCoupons')"
         title="渔获"
       >
-        <span class="btn-icon">🐟</span>
+        <img :src="fishingcollectionIcon" alt="渔获" class="btn-icon-img" />
         <span v-if="gameStore.coupons.length > 0" class="btn-badge btn-badge--gold">{{ gameStore.coupons.length }}</span>
       </button>
       
@@ -115,7 +121,7 @@ const totalFeed = computed(() => gameStore.totalFeedAvailable)
         @click="$emit('showShare')"
         title="分享获取饲料"
       >
-        <span class="btn-icon">👥</span>
+        <img :src="shareIcon" alt="分享" class="btn-icon-img" />
       </button>
     </div>
     
@@ -247,6 +253,13 @@ const totalFeed = computed(() => gameStore.totalFeedAvailable)
 
 .btn-icon {
   font-size: 24px;
+}
+
+.btn-icon-img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .btn-badge {
