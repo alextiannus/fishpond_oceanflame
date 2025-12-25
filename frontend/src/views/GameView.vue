@@ -125,6 +125,25 @@ function handleShare() {
   showShareModal.value = false
 }
 
+// 打开渔获详情（渔获评证）
+function openCatchDetail(coupon) {
+  // 从coupon中获取鱼的类型
+  const fishTypeKey = Object.keys(FISH_TYPES).find(k => 
+    FISH_TYPES[k].name === coupon.fishName
+  ) || 'QINGJIANG'
+  const fishType = FISH_TYPES[fishTypeKey]
+  
+  processingFishInfo.value = {
+    name: coupon.fishName,
+    weight: coupon.fishWeight,
+    value: coupon.value,
+    type: fishType?.id || 'qingjiang',
+  }
+  processingCoupon.value = coupon
+  showCouponModal.value = false
+  showProcessingVoucher.value = true
+}
+
 // 鱼类型列表
 const fishTypes = Object.values(FISH_TYPES)
 </script>
@@ -185,42 +204,38 @@ const fishTypes = Object.values(FISH_TYPES)
       </div>
     </Teleport>
     
-    <!-- 优惠券/烤鱼券弹窗 -->
+    <!-- 渔获列表弹窗 -->
     <Teleport to="body">
       <div v-if="showCouponModal" class="modal-overlay" @click.self="showCouponModal = false">
         <div class="modal glass">
           <div class="modal__header">
-            <h2>🍖 我的烤鱼券</h2>
+            <h2>🐟 我的渔获</h2>
             <button class="modal__close" @click="showCouponModal = false">✕</button>
           </div>
           <div class="modal__content">
             <div v-if="gameStore.coupons.length === 0" class="empty-state">
-              <span>📭</span>
-              <p>暂无烤鱼券</p>
+              <span>🎣</span>
+              <p>暂无渔获</p>
               <p>捕获成熟的鱼送去加工即可获得！</p>
             </div>
-            <div v-else class="coupon-list">
+            <div v-else class="catch-list">
               <div 
                 v-for="coupon in gameStore.coupons" 
                 :key="coupon.id"
-                class="coupon-card"
-                :class="{ 'coupon-card--used': coupon.used }"
+                class="catch-card"
+                @click="openCatchDetail(coupon)"
               >
-                <div class="coupon-card__badge">🍖</div>
-                <div class="coupon-card__left">
-                  <span class="coupon-value">¥{{ coupon.value }}</span>
-                  <span class="coupon-name">{{ coupon.fishName }} 烤鱼券</span>
-                  <span class="coupon-weight">{{ coupon.fishWeight?.toFixed(0) }}g</span>
+                <img 
+                  :src="fishGifs[coupon.fishId?.split('_')[0]] || fishGifs[Object.keys(fishGifs).find(k => coupon.fishName?.includes(FISH_TYPES[k.toUpperCase()]?.name)) || 'qingjiang']" 
+                  :alt="coupon.fishName"
+                  class="catch-card__image"
+                />
+                <div class="catch-card__info">
+                  <span class="catch-card__name">{{ coupon.fishName }}</span>
+                  <span class="catch-card__weight">{{ coupon.fishWeight?.toFixed(0) }}g</span>
+                  <span class="catch-card__date">{{ new Date(coupon.createdAt).toLocaleDateString() }}</span>
                 </div>
-                <div class="coupon-card__right">
-                  <div class="coupon-qr">
-                    <span>📱</span>
-                    <small>{{ coupon.code }}</small>
-                  </div>
-                  <div class="coupon-expires">
-                    {{ new Date(coupon.expiresAt).toLocaleDateString() }} 到期
-                  </div>
-                </div>
+                <div class="catch-card__arrow">›</div>
               </div>
             </div>
           </div>
@@ -688,6 +703,68 @@ const fishTypes = Object.values(FISH_TYPES)
 .coupon-expires {
   font-size: 10px;
   opacity: 0.6;
+}
+
+/* 渔获列表 */
+.catch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.catch-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(6, 182, 212, 0.1));
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.catch-card:hover {
+  transform: translateX(4px);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(6, 182, 212, 0.15));
+}
+
+.catch-card__image {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.catch-card__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catch-card__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+
+.catch-card__weight {
+  font-size: 14px;
+  color: #22d3ee;
+  font-weight: 500;
+}
+
+.catch-card__date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.catch-card__arrow {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 300;
 }
 
 /* 空状态 */
