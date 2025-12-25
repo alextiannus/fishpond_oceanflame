@@ -2,11 +2,23 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { FISH_TYPES, FISH_STATUS } from '../stores/game'
 
-// 导入鱼GIF动画（支持透明背景）
-import fishBabyGif from '@/assets/newfish.gif'
-import fishQingjiangGif from '@/assets/qingjiangyu.gif'
-import fishLingboGif from '@/assets/lingboyu.gif'
-import fishHailuGif from '@/assets/hailuyu.gif'
+// 使用 import.meta.glob 动态导入各文件夹中的所有GIF
+const newfishGifs = import.meta.glob('@/assets/newfish/*.gif', { eager: true, import: 'default' })
+const hailuyuGifs = import.meta.glob('@/assets/hailuyu/*.gif', { eager: true, import: 'default' })
+const qingjiangyuGifs = import.meta.glob('@/assets/qingjiangyu/*.gif', { eager: true, import: 'default' })
+const lingboyuGifs = import.meta.glob('@/assets/lingboyu/*.gif', { eager: true, import: 'default' })
+
+// 将导入的模块转换为数组
+const fishGifLibrary = {
+  qingjiang: Object.values(qingjiangyuGifs),
+  lingbo: Object.values(lingboyuGifs),
+  hailu: Object.values(hailuyuGifs),
+  newfish: Object.values(newfishGifs),
+}
+
+// 为 basha 和 jinmu 使用备用GIF库
+fishGifLibrary.basha = fishGifLibrary.qingjiang
+fishGifLibrary.jinmu = fishGifLibrary.lingbo
 
 const props = defineProps({
   fish: {
@@ -20,24 +32,40 @@ const emit = defineEmits(['click', 'feed', 'harvest'])
 // 获取鱼类型信息
 const fishType = computed(() => FISH_TYPES[props.fish.type.toUpperCase()])
 
-// 鱼GIF映射
-const fishGifs = {
-  qingjiang: fishQingjiangGif,
-  lingbo: fishLingboGif,
-  basha: fishQingjiangGif,  // 暂用清江鱼GIF
-  jinmu: fishLingboGif,     // 暂用凌波鱼GIF
-  hailu: fishHailuGif,      // 海鲈鱼
-}
-
 // 判断是否是幼鱼（喂食次数少于5次时显示小鱼）
 const isBaby = computed(() => (props.fish.foodEaten || 0) < 5)
+
+// 根据鱼的ID生成一个固定的随机索引（确保同一条鱼始终显示相同的GIF）
+function getRandomGifIndex(fishId, arrayLength) {
+  // 使用鱼的ID生成一个稳定的哈希值
+  let hash = 0
+  for (let i = 0; i < fishId.length; i++) {
+    hash = ((hash << 5) - hash) + fishId.charCodeAt(i)
+    hash = hash & hash // 转换为32位整数
+  }
+  return Math.abs(hash) % arrayLength
+}
 
 // 根据状态和类型获取鱼GIF
 const fishImage = computed(() => {
   if (isBaby.value) {
-    return fishBabyGif
+    // 幼鱼从 newfish 文件夹随机选择
+    const gifs = fishGifLibrary.newfish
+    if (gifs.length > 0) {
+      const index = getRandomGifIndex(props.fish.id, gifs.length)
+      return gifs[index]
+    }
   }
-  return fishGifs[props.fish.type] || fishQingjiangGif
+  
+  // 成鱼从对应类型的文件夹随机选择
+  const gifs = fishGifLibrary[props.fish.type] || fishGifLibrary.qingjiang
+  if (gifs.length > 0) {
+    const index = getRandomGifIndex(props.fish.id, gifs.length)
+    return gifs[index]
+  }
+  
+  // 兜底返回第一个
+  return fishGifLibrary.qingjiang[0]
 })
 
 // 特殊状态显示的emoji

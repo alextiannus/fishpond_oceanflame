@@ -26,11 +26,16 @@ const fishDescriptions = {
   }
 }
 
-// 导入鱼GIF动画
-import fishBabyGif from '@/assets/newfish.gif'
-import fishQingjiangGif from '@/assets/qingjiangyu.gif'
-import fishLingboGif from '@/assets/lingboyu.gif'
-import fishHailuGif from '@/assets/hailuyu.gif'
+// 使用 import.meta.glob 动态导入各文件夹中的GIF
+const newfishGifs = import.meta.glob('@/assets/newfish/*.gif', { eager: true, import: 'default' })
+const hailuyuGifs = import.meta.glob('@/assets/hailuyu/*.gif', { eager: true, import: 'default' })
+const qingjiangyuGifs = import.meta.glob('@/assets/qingjiangyu/*.gif', { eager: true, import: 'default' })
+const lingboyuGifs = import.meta.glob('@/assets/lingboyu/*.gif', { eager: true, import: 'default' })
+
+const fishBabyGif = Object.values(newfishGifs)[0]
+const fishQingjiangGif = Object.values(qingjiangyuGifs)[0]
+const fishLingboGif = Object.values(lingboyuGifs)[0]
+const fishHailuGif = Object.values(hailuyuGifs)[0]
 
 const props = defineProps({
   fishInfo: {

@@ -5,22 +5,22 @@ import GameScene from '../components/GameScene.vue'
 import UIPanel from '../components/UIPanel.vue'
 import ProcessingVoucher from '../components/ProcessingVoucher.vue'
 
-// 导入鱼GIF动画
-import fishBabyGif from '@/assets/newfish.gif'
-import fishQingjiangGif from '@/assets/qingjiangyu.gif'
-import fishLingboGif from '@/assets/lingboyu.gif'
-import fishHailuGif from '@/assets/hailuyu.gif'
+// 使用 import.meta.glob 动态导入各文件夹中的GIF
+const newfishGifs = import.meta.glob('@/assets/newfish/*.gif', { eager: true, import: 'default' })
+const hailuyuGifs = import.meta.glob('@/assets/hailuyu/*.gif', { eager: true, import: 'default' })
+const qingjiangyuGifs = import.meta.glob('@/assets/qingjiangyu/*.gif', { eager: true, import: 'default' })
+const lingboyuGifs = import.meta.glob('@/assets/lingboyu/*.gif', { eager: true, import: 'default' })
+
+// 将导入的模块转换为数组，取第一个作为默认
+const fishGifs = {
+  qingjiang: Object.values(qingjiangyuGifs)[0],
+  lingbo: Object.values(lingboyuGifs)[0],
+  basha: Object.values(qingjiangyuGifs)[0],
+  jinmu: Object.values(lingboyuGifs)[0],
+  hailu: Object.values(hailuyuGifs)[0],
+}
 
 const gameStore = useGameStore()
-
-// 鱼GIF映射
-const fishGifs = {
-  qingjiang: fishQingjiangGif,
-  lingbo: fishLingboGif,
-  basha: fishQingjiangGif,
-  jinmu: fishLingboGif,
-  hailu: fishHailuGif,
-}
 
 // 弹窗状态
 const showQRScanModal = ref(false)
