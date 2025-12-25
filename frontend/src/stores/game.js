@@ -194,25 +194,28 @@ export const useGameStore = defineStore('game', () => {
 
         const fishType = FISH_TYPES[fish.type.toUpperCase()]
 
-        // 喂食增加重量
-        const weightGain = 20 + Math.random() * 30 // 每次喂食增加 20-50g
+        // 每次喂食增加一天的成长重量 (~60g)
+        const DAILY_GROWTH = 60
+        const weightGain = DAILY_GROWTH + (Math.random() - 0.5) * 20 // 50-70g
         fish.weight += weightGain
         fish.hunger = 100 // 重置饥饿度
         fish.lastFedAt = new Date().toISOString() // 更新喂食时间
         fish.foodEaten += 1
-        fish.growth = (fish.foodEaten / fishType.foodRequired) * 100
 
-        // 检查是否成熟（重量达到目标）
-        const targetWeight = fishType.targetWeight + (Math.random() - 0.5) * fishType.weightVariance
-        if (fish.weight >= targetWeight && fish.foodEaten >= fishType.foodRequired) {
+        // 成熟标准：重量达到 800g
+        const MATURE_WEIGHT = 800
+        fish.growth = Math.min(100, (fish.weight / MATURE_WEIGHT) * 100)
+
+        // 检查是否成熟
+        if (fish.weight >= MATURE_WEIGHT) {
             fish.status = FISH_STATUS.ADULT
-        } else if (fish.status === FISH_STATUS.BABY && fish.foodEaten > 0) {
+        } else if (fish.status === FISH_STATUS.BABY && fish.weight > 100) {
             fish.status = FISH_STATUS.GROWING
         }
 
         // 恢复饥饿状态
         if (fish.status === FISH_STATUS.HUNGRY && fish.hunger > 30) {
-            fish.status = fish.weight >= targetWeight ? FISH_STATUS.ADULT : FISH_STATUS.GROWING
+            fish.status = fish.weight >= MATURE_WEIGHT ? FISH_STATUS.ADULT : FISH_STATUS.GROWING
         }
 
         // 扣除饲料（测试模式不扣除）
@@ -397,17 +400,34 @@ export const useGameStore = defineStore('game', () => {
         // 更新鱼的游动
         updateFishMovement()
 
-        // 基于真实时间检查饥饿度
+        // 游戏常量
         const MS_PER_DAY = 24 * 60 * 60 * 1000
-        const HUNGRY_DAYS = 3  // 超过3天没喂 -> 饥饿
-        const DEAD_DAYS = 15   // 超过15天没喂 -> 死亡
+        const DAILY_GROWTH = 60      // 每天自动成长 60g
+        const MATURE_WEIGHT = 800    // 成熟重量
+        const HUNGRY_DAYS = 3        // 超过3天没喂 -> 饥饿
+        const DEAD_DAYS = 15         // 超过15天没喂 -> 死亡
 
         for (const fish of fishes.value) {
             if (fish.status === FISH_STATUS.DEAD || fish.status === FISH_STATUS.CAUGHT) continue
 
-            // 计算距离上次喂食的天数
-            const lastFed = fish.lastFedAt ? new Date(fish.lastFedAt) : new Date(fish.createdAt)
+            // 计算距离创建和上次喂食的天数
+            const createdAt = new Date(fish.createdAt)
+            const lastFed = fish.lastFedAt ? new Date(fish.lastFedAt) : createdAt
+            const daysSinceCreated = (now - createdAt) / MS_PER_DAY
             const daysSinceLastFed = (now - lastFed) / MS_PER_DAY
+
+            // 计算自然生长重量（基于创建天数）
+            // 自然生长 = 天数 * 每日成长量 + 随机浮动
+            const naturalGrowth = daysSinceCreated * DAILY_GROWTH
+            const randomVariance = (Math.sin(fish.id.charCodeAt(5) || 0) * 0.2 + 0.9) // 每条鱼固定的随机因子
+            const initialWeight = 50 + (fish.id.charCodeAt(10) || 50) % 50 // 初始重量 50-100g
+
+            // 喂食加成 = 喂食次数 * 每日成长量
+            const feedingBonus = (fish.foodEaten || 0) * DAILY_GROWTH
+
+            // 计算总重量
+            fish.weight = initialWeight + naturalGrowth * randomVariance + feedingBonus
+            fish.growth = Math.min(100, (fish.weight / MATURE_WEIGHT) * 100)
 
             // 超过15天没喂 -> 死亡
             if (daysSinceLastFed > DEAD_DAYS) {
@@ -417,18 +437,22 @@ export const useGameStore = defineStore('game', () => {
             }
             // 超过3天没喂 -> 饥饿
             else if (daysSinceLastFed > HUNGRY_DAYS) {
-                if (fish.status !== FISH_STATUS.HUNGRY) {
+                if (fish.status !== FISH_STATUS.HUNGRY && fish.status !== FISH_STATUS.ADULT) {
                     fish.status = FISH_STATUS.HUNGRY
                 }
-                // 饥饿度逐渐下降 (3天后开始下降，15天时降到0)
                 fish.hunger = Math.max(0, 100 - ((daysSinceLastFed - HUNGRY_DAYS) / (DEAD_DAYS - HUNGRY_DAYS)) * 100)
             } else {
-                // 正常状态，保持100饥饿度
                 fish.hunger = 100
+                // 检查是否成熟
+                if (fish.weight >= MATURE_WEIGHT) {
+                    fish.status = FISH_STATUS.ADULT
+                } else if (fish.weight > 100 && fish.status === FISH_STATUS.BABY) {
+                    fish.status = FISH_STATUS.GROWING
+                }
             }
         }
 
-        // 移除死亡的鱼（立即移除，不做动画）
+        // 移除死亡的鱼
         fishes.value = fishes.value.filter(fish => fish.status !== FISH_STATUS.DEAD)
 
         saveToPersistence()
