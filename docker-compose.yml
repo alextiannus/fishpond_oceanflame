@@ -1,0 +1,89 @@
+# 🐟 海鲜养殖乐园 - Docker Compose 配置
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  db:
+    image: postgres:15-alpine
+    container_name: ocean-flame-db
+    environment:
+      POSTGRES_USER: oceanflame
+      POSTGRES_PASSWORD: secure_password_here
+      POSTGRES_DB: oceanflame
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oceanflame"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: ocean-flame-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # FastAPI 后端
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ocean-flame-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://oceanflame:secure_password_here@db:5432/oceanflame
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: your-super-secret-key-change-in-production
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Streamlit 管理后台
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: ocean-flame-admin
+    environment:
+      API_BASE_URL: http://backend:8000/api
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    volumes:
+      - ./admin:/app
+    command: streamlit run app.py --server.address 0.0.0.0
+
+  # Nginx 反向代理 (生产环境)
+  nginx:
+    image: nginx:alpine
+    container_name: ocean-flame-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      # - ./ssl:/etc/nginx/ssl:ro  # SSL 证书
+    depends_on:
+      - backend
+      - admin
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
