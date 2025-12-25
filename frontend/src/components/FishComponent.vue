@@ -101,6 +101,15 @@ const swimStyle = computed(() => {
   }
 })
 
+// 说话气泡样式 - 反转scaleX以确保文字始终正面显示给用户
+const speechStyle = computed(() => {
+  const flipX = props.fish.direction > 0 ? -1 : 1
+  const angle = props.fish.angle || 0
+  return {
+    transform: `scaleX(${flipX}) rotate(${-angle}deg) translateX(-50%)`,
+  }
+})
+
 // 鱼说话功能
 const showSpeech = ref(false)
 const speechText = ref('')
@@ -214,7 +223,7 @@ function handleClick() {
     
     <!-- 说话气泡 -->
     <Transition name="speech">
-      <div v-if="showSpeech" class="fish__speech">
+      <div v-if="showSpeech" class="fish__speech" :style="speechStyle">
         {{ speechText }}
       </div>
     </Transition>
@@ -325,7 +334,6 @@ function handleClick() {
   position: absolute;
   bottom: 100%;
   left: 50%;
-  transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.95);
   color: #333;
   padding: 6px 12px;
