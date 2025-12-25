@@ -63,6 +63,13 @@ function handleFeedAll() {
   } else {
     showToast(result.message, 'warning')
   }
+  
+  // 如果饲料用完，自动打开分享页
+  if (result.needShare) {
+    setTimeout(() => {
+      showShareModal.value = true
+    }, 500)
+  }
 }
 
 // 处理场景中鱼的点击（喂食）

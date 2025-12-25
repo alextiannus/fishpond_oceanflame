@@ -237,6 +237,22 @@ const backgroundStyle = computed(() => {
       <div class="net-ripple net-ripple--3"></div>
     </div>
     
+    <!-- 鱼食颗粒 -->
+    <div class="scene__food-pellets">
+      <div 
+        v-for="pellet in gameStore.foodPellets"
+        :key="pellet.id"
+        class="food-pellet"
+        :class="{ 'food-pellet--eaten': pellet.eaten }"
+        :style="{
+          left: `${pellet.x}%`,
+          '--target-y': `${pellet.targetY}%`,
+        }"
+      >
+        <span class="pellet-icon">🟤</span>
+      </div>
+    </div>
+    
     <!-- 鱼群 -->
     <div class="scene__fishes">
       <FishComponent
@@ -682,6 +698,59 @@ const backgroundStyle = computed(() => {
   }
   100% {
     transform: translateY(-40px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* 鱼食颗粒 */
+.scene__food-pellets {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.food-pellet {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  animation: pellet-fall 1.5s ease-out forwards;
+}
+
+.food-pellet--eaten {
+  animation: pellet-fall 1.5s ease-out forwards, pellet-eaten 0.3s ease-out 1.5s forwards;
+}
+
+.pellet-icon {
+  font-size: 16px;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+@keyframes pellet-fall {
+  0% {
+    top: 5%;
+    opacity: 0;
+    transform: translateX(-50%) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    top: var(--target-y, 40%);
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@keyframes pellet-eaten {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scale(0);
     opacity: 0;
   }
 }

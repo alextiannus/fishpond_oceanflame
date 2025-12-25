@@ -67,13 +67,13 @@ export const FISH_STATUS = {
 }
 
 export const useGameStore = defineStore('game', () => {
-    // 测试模式 - 无限饲料
+    // 测试模式 - 限制饲料数量为6
     const isTestMode = ref(true) // 设置为 true 开启测试模式
 
     // 用户状态
     const userId = ref(null)
     const username = ref('访客')
-    const feedCount = ref(10) // 每日饲料次数
+    const feedCount = ref(6) // 每日饲料次数（测试模式默认6个）
     const lastFeedDate = ref(null)
     const shareBonus = ref(0) // 分享获得的额外饲料
 
@@ -105,9 +105,13 @@ export const useGameStore = defineStore('game', () => {
     })
 
     const totalFeedAvailable = computed(() => {
-        if (isTestMode.value) return 9999 // 测试模式无限饲料
+        if (isTestMode.value) return feedCount.value + shareBonus.value // 测试模式也有限制
         return feedCount.value + shareBonus.value
     })
+
+    // 鱼食动画状态
+    const foodPellets = ref([]) // 正在下落的鱼食
+    const fishTargets = ref({}) // 鱼的目标位置（吸引到鱼食）
 
     // 方法
     function addFish(type, fromQRCode = false) {
@@ -150,6 +154,18 @@ export const useGameStore = defineStore('game', () => {
         for (const fish of fishes.value) {
             if (fish.status === FISH_STATUS.DEAD || fish.status === FISH_STATUS.CAUGHT) continue
 
+            // 检查是否有鱼食目标（被鱼食吸引）
+            const foodTarget = fishTargets.value[fish.id]
+            if (foodTarget) {
+                // 游向鱼食，速度加快
+                fish.targetX = foodTarget.x
+                fish.targetY = foodTarget.y
+                fish.speed = 0.8 // 加速游向食物
+            } else {
+                // 恢复正常速度
+                fish.speed = 0.1 + (fish.id.charCodeAt(5) || 50) % 20 / 100
+            }
+
             // 计算与目标的距离
             const dx = fish.targetX - fish.x
             const dy = fish.targetY - fish.y
@@ -157,8 +173,11 @@ export const useGameStore = defineStore('game', () => {
 
             // 如果接近目标，设置新目标
             if (distance < 3) {
-                fish.targetX = Math.random() * 70 + 15
-                fish.targetY = Math.random() * 50 + 25
+                // 如果没有鱼食目标，随机游动
+                if (!foodTarget) {
+                    fish.targetX = Math.random() * 70 + 15
+                    fish.targetY = Math.random() * 50 + 25
+                }
             } else {
                 // 朝目标移动
                 const moveX = (dx / distance) * fish.speed
@@ -237,23 +256,86 @@ export const useGameStore = defineStore('game', () => {
     }
 
     function feedAllFish() {
-        let fed = 0
-        let totalWeightGain = 0
-        for (const fish of fishes.value) {
-            // 测试模式不检查饲料
-            if (!isTestMode.value) {
-                const availableFeed = feedCount.value + shareBonus.value
-                if (availableFeed <= 0) break
-            }
-            if (fish.status !== FISH_STATUS.DEAD && fish.status !== FISH_STATUS.CAUGHT) {
-                const result = feedFish(fish.id)
-                if (result.success) {
-                    fed++
-                    totalWeightGain += result.newWeight || 0
-                }
-            }
+        // 检查饲料
+        const availableFeed = feedCount.value + shareBonus.value
+        if (availableFeed <= 0) {
+            return { success: false, message: '饲料不足！', needShare: true }
         }
-        return { success: true, fed, message: `喂了 ${fed} 条鱼！` }
+
+        // 获取可以喂食的鱼（非捕获状态）
+        const eligibleFish = fishes.value.filter(f =>
+            f.status !== FISH_STATUS.CAUGHT
+        )
+
+        if (eligibleFish.length === 0) {
+            return { success: false, message: '没有鱼可以喂食' }
+        }
+
+        // 选择一条鱼来吃这个鱼食（最饿或随机）
+        const targetFish = eligibleFish[Math.floor(Math.random() * eligibleFish.length)]
+
+        // 创建鱼食颗粒（从顶部随机位置落下）
+        const pelletX = 20 + Math.random() * 60 // 20-80% 位置
+        const pellet = {
+            id: `pellet_${Date.now()}`,
+            x: pelletX,
+            y: 5, // 从顶部开始
+            targetY: 30 + Math.random() * 30, // 落到 30-60% 位置
+            targetFishId: targetFish.id,
+            eaten: false,
+        }
+        foodPellets.value.push(pellet)
+
+        // 设置目标鱼游向鱼食
+        fishTargets.value[targetFish.id] = { x: pelletX, y: pellet.targetY }
+
+        // 扣除饲料
+        if (shareBonus.value > 0) {
+            shareBonus.value--
+        } else {
+            feedCount.value--
+        }
+
+        // 延迟处理鱼吃到鱼食
+        setTimeout(() => {
+            // 更新鱼的成长
+            const DAILY_GROWTH = 60
+            const weightGain = DAILY_GROWTH + (Math.random() - 0.5) * 20
+            targetFish.weight += weightGain
+            targetFish.foodEaten += 1
+            targetFish.lastFedAt = new Date().toISOString()
+
+            const MATURE_WEIGHT = 800
+            targetFish.growth = Math.min(100, (targetFish.weight / MATURE_WEIGHT) * 100)
+            if (targetFish.weight >= MATURE_WEIGHT) {
+                targetFish.status = FISH_STATUS.ADULT
+            } else if (targetFish.weight > 100 && targetFish.status === FISH_STATUS.BABY) {
+                targetFish.status = FISH_STATUS.GROWING
+            }
+
+            // 标记鱼食已被吃掉
+            pellet.eaten = true
+
+            // 清除鱼的目标，让它散开
+            delete fishTargets.value[targetFish.id]
+
+            // 移除鱼食
+            setTimeout(() => {
+                foodPellets.value = foodPellets.value.filter(p => p.id !== pellet.id)
+            }, 500)
+
+            saveToPersistence()
+        }, 1500) // 1.5秒后吃到
+
+        saveToPersistence()
+
+        const newAvailable = feedCount.value + shareBonus.value
+        return {
+            success: true,
+            fed: 1,
+            message: `投喂成功！剩余 ${newAvailable} 份饲料`,
+            needShare: newAvailable <= 0
+        }
     }
 
     // 撒网捕鱼
@@ -505,6 +587,8 @@ export const useGameStore = defineStore('game', () => {
         isNetActive,
         netPosition,
         currentBackground,
+        foodPellets,
+        fishTargets,
 
         // Computed
         totalFishValue,
