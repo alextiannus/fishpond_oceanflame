@@ -144,8 +144,10 @@ function openCatchDetail(coupon) {
   showProcessingVoucher.value = true
 }
 
-// 鱼类型列表
-const fishTypes = Object.values(FISH_TYPES)
+// 鱼类型列表（添加鱼苗时只显示部分鱼种）
+const fishTypes = Object.values(FISH_TYPES).filter(f => 
+  !['basha', 'jinmu'].includes(f.id)
+)
 </script>
 
 <template>
