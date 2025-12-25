@@ -156,21 +156,24 @@ export const useGameStore = defineStore('game', () => {
 
             // 检查是否有鱼食目标（被鱼食吸引）
             const foodTarget = fishTargets.value[fish.id]
+            // 记录正常速度
+            const normalSpeed = 0.1 + (fish.id.charCodeAt(5) || 50) % 20 / 100
+
             if (foodTarget) {
                 // 找到对应的鱼食，追踪其当前位置
                 const pellet = foodPellets.value.find(p => p.id === foodTarget.pelletId)
                 if (pellet && !pellet.eaten) {
-                    // 游向鱼食的当前位置
+                    // 游向鱼食的当前位置，1.5倍速度
                     fish.targetX = pellet.x
                     fish.targetY = pellet.currentY
-                    fish.speed = 0.6 // 加速游向食物
+                    fish.speed = normalSpeed * 1.5 // 1.5倍正常速度
                 } else {
                     // 鱼食已被吃掉或不存在，清除目标
                     delete fishTargets.value[fish.id]
                 }
             } else {
                 // 恢复正常速度
-                fish.speed = 0.1 + (fish.id.charCodeAt(5) || 50) % 20 / 100
+                fish.speed = normalSpeed
             }
 
             // 计算与目标的距离
@@ -285,23 +288,15 @@ export const useGameStore = defineStore('game', () => {
             x: pelletX,
             currentY: 5, // 当前位置（从顶部开始）
             targetY: 50 + Math.random() * 20, // 最终落到 50-70% 位置
-            fallSpeed: 0.15, // 每次更新下落的距离 (慢速 1/4)
+            fallSpeed: 0.225, // 每次更新下落的距离 (提高50%)
             eaten: false,
             eatenByFishId: null,
         }
         foodPellets.value.push(pellet)
 
-        // 吸引所有附近的鱼向鱼食游去
+        // 吸引所有鱼向鱼食游去
         for (const fish of eligibleFish) {
-            // 计算鱼到鱼食的距离
-            const distX = Math.abs(fish.x - pelletX)
-            const distY = Math.abs(fish.y - pellet.currentY)
-            const distance = Math.sqrt(distX * distX + distY * distY)
-
-            // 距离在40%范围内的鱼会被吸引
-            if (distance < 40) {
-                fishTargets.value[fish.id] = { x: pelletX, y: pellet.targetY, pelletId: pellet.id }
-            }
+            fishTargets.value[fish.id] = { x: pelletX, y: pellet.targetY, pelletId: pellet.id }
         }
 
         // 扣除饲料
