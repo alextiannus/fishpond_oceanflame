@@ -103,7 +103,8 @@ const swimStyle = computed(() => {
 
 // 说话气泡样式 - 反转scaleX以确保文字始终正面显示给用户
 const speechStyle = computed(() => {
-  const flipX = props.fish.direction > 0 ? 1 : -1
+  // 鱼的容器已经被翻转，需要再次翻转来抵消
+  const flipX = props.fish.direction > 0 ? -1 : 1
   const angle = props.fish.angle || 0
   return {
     transform: `scaleX(${flipX}) rotate(${-angle}deg) translateX(-50%)`,
